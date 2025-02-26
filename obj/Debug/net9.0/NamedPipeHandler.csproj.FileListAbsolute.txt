@@ -22,3 +22,16 @@ C:\Users\tomoi\source\repos\NamedPipeHandler\obj\Debug\net9.0\refint\NamedPipeHa
 C:\Users\tomoi\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.pdb
 C:\Users\tomoi\source\repos\NamedPipeHandler\obj\Debug\net9.0\ref\NamedPipeHandler.dll
 C:\Users\tomoi\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.csproj.AssemblyReference.cache
+C:\Users\TRI\source\repos\NamedPipeHandler\bin\Debug\net9.0\NamedPipeHandler.deps.json
+C:\Users\TRI\source\repos\NamedPipeHandler\bin\Debug\net9.0\NamedPipeHandler.dll
+C:\Users\TRI\source\repos\NamedPipeHandler\bin\Debug\net9.0\NamedPipeHandler.pdb
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.csproj.AssemblyReference.cache
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.AssemblyInfoInputs.cache
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.AssemblyInfo.cs
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.csproj.CoreCompileInputs.cache
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.sourcelink.json
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.dll
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\refint\NamedPipeHandler.dll
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\NamedPipeHandler.pdb
+C:\Users\TRI\source\repos\NamedPipeHandler\obj\Debug\net9.0\ref\NamedPipeHandler.dll

@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.IO.Pipes;
 using System.Management;
+using System.Reflection.PortableExecutable;
+using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
 
@@ -11,13 +13,13 @@ namespace NamedPipeHandler
     {
         // パイプに対して送信を行う処理
         // 1件送信するごとに、パイプ接続→切断するタイプ。
-        public static async Task CreateAndSendAsync(string pipeName, string writeString, Action<string>? setStatus, Action<string>? onRecvResponse = default)
+        public static async Task CreateAndSendAsync(string pipeName, DataBlock writeDataBlock, Action<string>? setStatus, Action<DataBlock>? onRecvResponse = default)
         {
 
 
             await Task.Run(async () =>
             {
-                using (NamedPipeClientStream pipeClient = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous, TokenImpersonationLevel.Impersonation))
+                using (NamedPipeClientStream? pipeClient = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.CurrentUserOnly | PipeOptions.Asynchronous, TokenImpersonationLevel.Impersonation))
                 {
                     int try_num = 0;
                     while (true)
@@ -26,21 +28,24 @@ namespace NamedPipeHandler
                         try
                         {
                             pipeClient?.Connect(1000);
+                            
                         }
                         catch (TimeoutException toe)
                         {
                             if (try_num < 10)
                             {
+                                try_num++;
                                 continue;
                             }
                             else
                             {
-                                setStatus?.Invoke(toe.Message);// 接続時にタイムアウトした場合はなにもしない
+                                setStatus?.Invoke(toe.Message);
+                                // 接続時にタイムアウトした場合はなにもしない
                                 break;
                             }
                         }
 
-                        if (pipeClient is null)
+                        if (pipeClient is null || !pipeClient.IsConnected)
                         {
                             throw new InvalidOperationException("PipeClientがnullもしくは未接続です");
                         }
@@ -48,20 +53,35 @@ namespace NamedPipeHandler
                         {
                             try
                             {
-                                using var cts = new CancellationTokenSource();
-                                cts.CancelAfter(TimeSpan.FromSeconds(5));
+                                using (var reader = new BinaryReader(pipeClient))
+                                using (var writer = new BinaryWriter(pipeClient))
+                                {
+                                    using var cts = new CancellationTokenSource();
+                                    cts.CancelAfter(TimeSpan.FromSeconds(5));
 
-                                // サーバーにメッセージを送信
-                                byte[] messageBytes = Encoding.UTF8.GetBytes(writeString);
-                                pipeClient!.Write(messageBytes, 0, messageBytes.Length);
+                                    // サーバーにメッセージを送信
+                                    byte[] messageBytes = DataBlockHandler.ConvertDataBlockToBytes(writeDataBlock);
+                                    //await pipeClient!.WriteAsync(messageBytes, 0, messageBytes.Length, cts.Token);
+                                    writer.Write(messageBytes, 0, messageBytes.Length);
+                                    writer.Flush();
 
-                                // サーバーからの応答を受け取る
-                                var buffer = new byte[256];
-                                int bytesRead = await pipeClient!.ReadAsync(buffer, 0, buffer.Length, cts.Token);
-                                string receivedMessage = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                                setStatus?.Invoke("Server Responded:");
-                                onRecvResponse?.Invoke(receivedMessage);
+                                    // サーバーからの応答を受け取る
+                                    byte[] buffer = new byte[512];
+                                    DataBlock receivedDataBlock = new DataBlock();
+                                    int length = reader.Read(buffer, 0, buffer.Length);
+                                    if (length > 0) 
+                                    {
+                                        setStatus?.Invoke("Server Responded:");
+                                        receivedDataBlock = DataBlockHandler.ConvertBytesToDataBlock(buffer);
+                                        onRecvResponse?.Invoke(receivedDataBlock);
+                                    }
+                                    else
+                                    {
+                                        setStatus?.Invoke("Server Not Responded:");
+                                    }
+                                    //int bytesRead = await pipeClient.ReadAsync(buffer, 0, buffer.Length);
+                                    //DataBlock receivedDataBlock = DataBlockHandler.ConvertBytesToDataBlock(buffer);
+                                }
 
                                 break;
                             }
@@ -93,7 +113,7 @@ namespace NamedPipeHandler
                 ManagementObjectSearcher searcher = new ManagementObjectSearcher(query);
                 foreach (ManagementObject obj in searcher.Get())
                 {
-                    string name = obj["Name"]?.ToString();
+                    string name = obj["Name"].ToString();
                     if (name != null && name.Contains(pipeName))
                     {
                         //MessageBox.Show($"Found named pipe: {name}", "Named Pipe Finder");

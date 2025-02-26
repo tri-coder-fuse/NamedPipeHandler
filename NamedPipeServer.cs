@@ -1,13 +1,4 @@
-﻿using NamedPipeHandler;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO.Pipes;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO.Pipes;
 
 namespace NamedPipeHandler
 {
@@ -20,10 +11,15 @@ namespace NamedPipeHandler
         private CancellationTokenSource _lifetimeCts = new CancellationTokenSource();
         private bool disposedValue;
         private NamedPipeServerStream? _serverStream;
-        public bool isRunning = true;
+        private bool isRunning = true;
+
+        public bool IsRunning()
+        {
+            return isRunning;
+        }
 
         // パイプから受信を行う処理
-        public Task ServerReceiveAsync(string pipeName, Action<string> onRecv, Action<string> setStatus, CancellationToken ct = default)
+        public Task ServerReceiveAsync(string pipeName, Action<DataBlock> onRecv, Action<string> setStatus, CancellationToken ct = default)
         {
             var combinedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, _lifetimeCts.Token);
 
@@ -65,7 +61,7 @@ namespace NamedPipeHandler
                             _serverStream.Dispose();
                         }
 
-                        await Task.Delay(1000);
+                        await Task.Delay(1); // 1ms待機
 
                     }
                 }
@@ -74,17 +70,31 @@ namespace NamedPipeHandler
 
 
         // 送信処理（主にクライアント受信時の応答の送信を想定）
-        public async Task SendString(string sendData)
+        //public async Task SendString(string sendData)
+        //{
+        //    CancellationTokenSource cts = new CancellationTokenSource();
+        //    cts.CancelAfter(TimeSpan.FromSeconds(5));
+        //    // クライアントに応答を送信
+        //    byte[] responseBytes = Encoding.UTF8.GetBytes(sendData);
+        //    await _serverStream!.WriteAsync(responseBytes, 0, responseBytes.Length, cts.Token);
+        //}
+
+        // 送信処理（主にクライアント受信時の応答の送信を想定）
+        public async Task SendDatablock(DataBlock sendData)
         {
-            CancellationTokenSource cts = new CancellationTokenSource();
-            cts.CancelAfter(TimeSpan.FromSeconds(5));
-            // クライアントに応答を送信
-            byte[] responseBytes = Encoding.UTF8.GetBytes(sendData);
-            await _serverStream!.WriteAsync(responseBytes, 0, responseBytes.Length, cts.Token);
+            using (var writer = new BinaryWriter(_serverStream))
+            {
+                CancellationTokenSource cts = new CancellationTokenSource();
+                cts.CancelAfter(TimeSpan.FromSeconds(5));
+                // クライアントに応答を送信
+                byte[] responseBytes = DataBlockHandler.ConvertDataBlockToBytes(sendData);
+                writer.Write(responseBytes, 0, responseBytes.Length);
+                writer.Flush();
+            }
+
         }
 
-
-        private async Task HandleClient(NamedPipeServerStream client_connection, Action<string> onRecv, Action<string> setStatus)
+        private async Task HandleClient(NamedPipeServerStream client_connection, Action<DataBlock> onRecv, Action<string> setStatus)
         {
             try
             {
@@ -92,22 +102,23 @@ namespace NamedPipeHandler
                 {
                     try
                     {
-                        byte[] buffer = new byte[256];
-                        int bytesRead = client_connection.Read(buffer, 0, buffer.Length);
-                        if (bytesRead > 0)
+                        using (var reader = new BinaryReader(client_connection))
                         {
-                            setStatus.Invoke($"受信：");
-
-                            string? message = System.Text.Encoding.UTF8.GetString(buffer, 0, bytesRead); ;
-                            if (!string.IsNullOrEmpty(message))
+                            byte[] buffer = new byte[512];
+                            int bytesRead = reader.Read(buffer, 0, buffer.Length);
+                            if (bytesRead > 0)
                             {
-                                onRecv?.Invoke(message);
+                                setStatus.Invoke($"受信：");
+
+                                DataBlock db = DataBlockHandler.ConvertBytesToDataBlock(buffer);
+                                onRecv?.Invoke(db);
+                            }
+                            else
+                            {
+                                throw new IOException("Connection lost");
                             }
                         }
-                        else
-                        {
-                            throw new IOException("Connection lost");
-                        }
+
                     }
                     catch (IOException ex)
                     {
